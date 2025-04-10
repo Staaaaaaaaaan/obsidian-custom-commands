@@ -1,5 +1,5 @@
 // main.js
-const { Plugin, Notice, Setting, PluginSettingTab, Modal, Editor, TFile, TAbstractFile } = require('obsidian');
+const { Plugin, Notice, Setting, PluginSettingTab, TFile, normalizePath} = require('obsidian');
 
 // --- Renamed Setting Tab ---
 class CustomCommandsSettingTab extends PluginSettingTab {
@@ -10,16 +10,14 @@ class CustomCommandsSettingTab extends PluginSettingTab {
 
   display() {
     const { containerEl } = this;
-    containerEl.empty();
-
-    containerEl.createEl('h2', { text: 'Custom Commands' }); // Renamed
+    //containerEl.empty();
     
     // Add button to create new command
     new Setting(containerEl)
-      .setName('Add New Command')
+      .setName('Add new command')
       .setDesc('Create a new custom command') // Updated description
       .addButton(button => button
-        .setButtonText('Add Command')
+        .setButtonText('Add command')
         .setCta()
         .onClick(async () => {
             // Create a new command with a default ID based on the name
@@ -82,10 +80,10 @@ class CustomCommandsSettingTab extends PluginSettingTab {
       switch (command.type) {
       case 'open':
         commandSetting.addText(text => text
-        .setPlaceholder('Path: daily/{{date}}.md')
+        .setPlaceholder('Path: daily/{{date}}.md)')
         .setValue(command.path || '')
         .onChange(async (value) => {
-          this.plugin.settings.commands[index].path = value;
+          this.plugin.settings.commands[index].path = normalizePath(value);
           await this.plugin.saveSettings();
         })
         .inputEl.addClass('custom-command-input-full-width'));
@@ -95,7 +93,7 @@ class CustomCommandsSettingTab extends PluginSettingTab {
         .setPlaceholder('New Path: notes/{{date}}.md')
         .setValue(command.path || '')
         .onChange(async (value) => {
-          this.plugin.settings.commands[index].path = value;
+          this.plugin.settings.commands[index].path = normalizePath(value);
           await this.plugin.saveSettings();
         })
         .inputEl.addClass('custom-command-input-full-width'));
@@ -104,7 +102,7 @@ class CustomCommandsSettingTab extends PluginSettingTab {
         .setPlaceholder('Template Path (Optional)')
         .setValue(command.templatePath || '')
         .onChange(async (value) => {
-          this.plugin.settings.commands[index].templatePath = value;
+          this.plugin.settings.commands[index].templatePath = normalizePath(value);
           await this.plugin.saveSettings();
         })
         .inputEl.addClass('custom-command-input-full-width'));
@@ -166,15 +164,36 @@ class CustomCommandsSettingTab extends PluginSettingTab {
     commandInfo.innerHTML = 'Create custom commands to <strong>open</strong> notes, <strong>create</strong> new notes at a specified path, <strong>insert</strong> text or code snippets, or run a combination <strong>sequence</strong> of other commands. To set hotkeys for these commands, go to <strong>Settings → Hotkeys</strong> and search for the command name.';
     commandInfo.style.marginBottom = '0.5em'; // Reduce space after header
     
+    new Setting(containerEl)
+      .setName('New note pption')
+      .setDesc('Open notes in new tab (leaf), window, or current tab?')
+      .addDropdown(dropdown => dropdown
+        .addOption('true', 'New')
+        .addOption('false', 'Current')
+        .addOption('window', 'Window')
+        .setValue(String(this.plugin.settings.leaf)) // Read the actual setting
+        .onChange(async (value) => {
+          // Parse the value back to the correct type before saving
+          let actualValue;
+          if (value === 'true') actualValue = true;
+          else if (value === 'false') actualValue = false;
+          else actualValue = value; // Should be 'window'
+
+          this.plugin.settings.leaf = actualValue;
+          await this.plugin.saveSettings();
+          // No need to call this.display() here, the setting is saved.
+          // Reloading the settings tab will show the correct value.
+        }));
+
     // Add horizontal separator
     const separator = containerEl.createEl('hr');
-    separator.style.marginTop = '1.5em';
+    separator.style.marginTop = '0.5em';
     separator.style.marginBottom = '1.5em';
     separator.style.opacity = '0.35'; // Make it slightly more visible
     separator.style.width = '100%';  // Ensure full width
 
     // Add test button for format preview
-    const testHeader = containerEl.createEl('h3', { text: 'Test Date Format' });
+    const testHeader = containerEl.createEl('h3', { text: 'Test date format' });
     testHeader.style.marginBottom = '0.5em'; // Reduce space after header
     testHeader.style.marginTop = '0em'; // Reduce space after header
     const testContainer = containerEl.createEl('div');
@@ -186,7 +205,7 @@ class CustomCommandsSettingTab extends PluginSettingTab {
     testInput.value = 'Daily/{{year}}/{{date:MM-mmmm}}/{{date}}-{{weekday}}-{{time}}.md';
 
     const testButton = testContainer.createEl('button');
-    testButton.setText('Test Format');
+    testButton.setText('Test format');
     testButton.addClass('mod-cta');
     testButton.style.marginBottom = '0em'; // Reduce space after button
 
@@ -225,26 +244,6 @@ class CustomCommandsSettingTab extends PluginSettingTab {
       formatList.createEl('li', { text: item });
     });
 
-    new Setting(containerEl)
-      .setName('New Note Option')
-      .setDesc('Open notes in new tab (leaf), window, or current tab?')
-      .addDropdown(dropdown => dropdown
-        .addOption('true', 'New')
-        .addOption('false', 'Current')
-        .addOption('window', 'Window')
-        .setValue(String(this.plugin.settings.leaf)) // Read the actual setting
-        .onChange(async (value) => {
-          // Parse the value back to the correct type before saving
-          let actualValue;
-          if (value === 'true') actualValue = true;
-          else if (value === 'false') actualValue = false;
-          else actualValue = value; // Should be 'window'
-
-          this.plugin.settings.leaf = actualValue;
-          await this.plugin.saveSettings();
-          // No need to call this.display() here, the setting is saved.
-          // Reloading the settings tab will show the correct value.
-        }));
   }
 }
 
@@ -253,13 +252,13 @@ const DEFAULT_SETTINGS = {
       {
         "id": "open-home",
         "name": "Open Home",
-        "path": "00/Home.md",
+        "path": normalizePath("00/Home.md"),
         "type": "open"
       },
       {
         "id": "create-today",
         "name": "Create Today",
-        "path": "Daily/{{date}}-{{weekday}}",
+        "path": normalizePath("Daily/{{date}}-{{weekday}}"),
         "type": "create",
         "templatePath": "",
         "snippet": "",
@@ -294,15 +293,6 @@ module.exports = class CustomCommandsPlugin extends Plugin {
 
     // Load settings
     await this.loadSettings();
-
-    // Register the generic "Open Note by Name" command (keeping this for now)
-    this.addCommand({
-      id: 'open-note-by-name',
-      name: 'Open Note by Name',
-      callback: () => {
-        this.openNotePrompt();
-      }
-    });
 
     // Register all custom commands from settings
     this.registerCommands();
@@ -401,7 +391,7 @@ module.exports = class CustomCommandsPlugin extends Plugin {
         const parentDir = notePath.substring(0, notePath.lastIndexOf('/'));
         if (parentDir && !this.app.vault.getAbstractFileByPath(parentDir)) {
             await this.app.vault.createFolder(parentDir);
-            console.log(`Created folder: ${parentDir}`);
+            //console.log(`Created folder: ${parentDir}`);
         }
 
 
@@ -494,7 +484,7 @@ module.exports = class CustomCommandsPlugin extends Plugin {
       });
 
       if (commandId) {
-        console.log(`Executing command: ${name} (ID: ${commandId})`);
+        //console.log(`Executing command: ${name} (ID: ${commandId})`);
         try {
           // Execute the command by its found ID
           await this.app.commands.executeCommandById(commandId);
@@ -609,12 +599,6 @@ module.exports = class CustomCommandsPlugin extends Plugin {
     return months[monthNum];
   }
 
-  // Open a prompt to enter note path
-  openNotePrompt() {
-    const modal = new OpenNoteModal(this.app, this); // Keep using the existing modal for this specific command
-    modal.open();
-  }
-
   // Open a specific note by path
   async openNote(notePath) {
     try {
@@ -660,81 +644,5 @@ module.exports = class CustomCommandsPlugin extends Plugin {
   onunload() {
     // console.log('Unloading Custom Commands Plugin'); // Renamed
     // Consider cleanup if commands were registered in a way that needs explicit removal
-  }
-}
-
-// Modal for the generic open note command (can remain as is for now)
-class OpenNoteModal extends Modal {
-    // ... (Modal code remains unchanged) ...
-  constructor(app, plugin) {
-    super(app);
-    this.plugin = plugin;
-  }
-
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.createEl('h2', { text: 'Open Note by Name' });
-
-    // Create input field
-    const inputContainer = contentEl.createDiv();
-    inputContainer.addClass('open-note-input-container');
-
-    const inputEl = inputContainer.createEl('input', {
-      type: 'text',
-      placeholder: 'Enter note name or path'
-    });
-
-    inputEl.addClass('open-note-input');
-
-    // Add some styling
-    inputEl.style.width = '100%';
-    inputEl.style.marginBottom = '20px';
-
-    // Create button container
-    const buttonContainer = contentEl.createDiv();
-    buttonContainer.addClass('open-note-button-container');
-    buttonContainer.style.display = 'flex';
-    buttonContainer.style.justifyContent = 'flex-end';
-
-    // Create open button
-    const openButton = buttonContainer.createEl('button', {
-      text: 'Open'
-    });
-
-    openButton.addEventListener('click', () => {
-      const notePath = inputEl.value.trim();
-      if (notePath) {
-        this.close();
-        // Use the plugin's openNote method, which now handles date placeholders if any are used here
-        const resolvedPath = this.plugin.resolveDatePlaceholders(notePath);
-        this.plugin.openNote(resolvedPath);
-      } else {
-        new Notice('Please enter a note name or path');
-      }
-    });
-
-    // Focus the input field when modal opens
-    setTimeout(() => {
-      inputEl.focus();
-    }, 10);
-
-    // Handle enter key
-    inputEl.addEventListener('keypress', (event) => {
-      if (event.key === 'Enter') {
-        const notePath = inputEl.value.trim();
-        if (notePath) {
-          this.close();
-          const resolvedPath = this.plugin.resolveDatePlaceholders(notePath);
-          this.plugin.openNote(resolvedPath);
-        } else {
-          new Notice('Please enter a note name or path');
-        }
-      }
-    });
-  }
-
-  onClose() {
-    const { contentEl } = this;
-    contentEl.empty();
   }
 }
