@@ -1,0 +1,10 @@
+{
+  "id": "custom-commands",
+  "name": "Custom Commands",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "Create custom commands to be executed in the command palette, and by hotkey. Currently supports opening specific notes, creating notes, inserting snippets, and executing sequences of commands.",
+  "author": "Staaaaaaaaaan",
+  "authorUrl": "https://github.com/Staaaaaaaaaan",
+  "isDesktopOnly": false
+}

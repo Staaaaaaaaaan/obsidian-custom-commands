@@ -1,0 +1,13 @@
+# Obsidian specific
+.obsidian/
+
+# Node dependencies
+node_modules/
+
+# Build artifacts (if any)
+dist/
+build/
+
+# System files
+.DS_Store
+Thumbs.db
