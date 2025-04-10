@@ -2,7 +2,7 @@
 
 Create personalized commands in Obsidian to streamline your workflow. Define commands that can open specific notes, create new notes with optional templates, insert text snippets, or run sequences of other commands.
 
-![Custom Commands Settings](https://user-images.githubusercontent.com/Staaaaaaaaaan/obsidian-custom-commands/demo-image.png)
+![Custom Commands Settings](demo-image.png)
 
 ## Features
 
