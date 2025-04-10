@@ -155,3 +155,76 @@
   background-color: var(--background-primary);
   border-radius: 4px;
 }
+
+/* Your existing CSS remains unchanged */
+
+/* Responsive adjustments for smaller screens */
+@media screen and (max-width: 768px) {
+
+  /* Make command settings stack vertically on mobile */
+  .command-setting>.setting-item-control {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  /* Ensure dropdown has full width */
+  .command-setting>.setting-item-control>select {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  /* Ensure command name input has full width */
+  .command-setting>.setting-item-control>input[type="text"] {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  /* Give delete button proper spacing */
+  .command-setting>.setting-item-control>button {
+    align-self: flex-end;
+  }
+
+  /* Increase touch target sizes for mobile */
+  .command-setting button,
+  .command-setting select {
+    min-height: 36px;
+  }
+
+  /* Ensure textareas have sufficient height on mobile */
+  .command-details textarea {
+    min-height: 100px;
+  }
+
+  /* Add more space between command items on mobile */
+  .command-setting {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--background-modifier-border);
+  }
+
+  /* Make format info more readable on mobile */
+  .format-info {
+    font-size: 0.9em;
+  }
+
+  .format-info ul {
+    padding-left: 16px;
+  }
+}
+
+/* Extra small screens like phones in portrait mode */
+@media screen and (max-width: 480px) {
+
+  /* Even more compact layout for very small screens */
+  .setting-item {
+    padding: 10px;
+  }
+
+  /* Further increase touch targets for very small screens */
+  .command-setting button,
+  .command-setting select,
+  .command-setting input[type="text"] {
+    min-height: 44px;
+  }
+}
