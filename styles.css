@@ -1,0 +1,157 @@
+/* Plugin styles */
+.open-note-input-container {
+  margin-bottom: 20px;
+}
+
+.open-note-input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.open-note-button-container {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.open-note-button-container button {
+  margin-left: 8px;
+}
+
+/* Settings styles */
+.command-setting {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 5px;
+  /* Reduced margin */
+  display: flex;
+  /* Use flex for better alignment */
+  flex-wrap: wrap;
+  /* Allow wrapping */
+  align-items: center;
+  /* Align items vertically */
+  gap: 10px;
+  /* Add gap between elements */
+}
+
+/* Style the main controls (type dropdown, name input, delete button) */
+.command-setting>.setting-item-control {
+  flex-grow: 1;
+  /* Allow name input to grow */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.command-setting>.setting-item-control>input[type="text"] {
+  min-width: 150px;
+  /* Ensure name input has minimum width */
+}
+
+
+/* Hide default setting name/desc */
+.command-setting .setting-item-info,
+.command-details .setting-item-info {
+  display: none;
+}
+
+.custom-command-input-full-width {
+  flex-grow: 1 !important;
+  margin-right: 8px;
+}
+
+.command-setting .setting-item-control {
+  display: flex;
+  flex-wrap: nowrap;
+  flex-grow: 1;
+  justify-content: flex-end;
+}
+
+/* Container for type-specific details */
+.command-details {
+  width: 100%;
+  /* Take full width below the main controls */
+  padding-left: 15px;
+  /* Indent details slightly */
+  border-left: 2px solid var(--background-modifier-border-hover);
+  margin-top: 10px;
+  margin-bottom: 5px;
+}
+
+.command-details .setting-item {
+  padding-top: 5px;
+  padding-bottom: 5px;
+  border-bottom: none;
+  /* Remove default border */
+}
+
+.command-details .setting-item-control {
+  width: 100%;
+  /* Make controls take full width */
+}
+
+.command-details .setting-item-description {
+  font-size: var(--font-ui-smaller);
+  /* Make description smaller */
+  opacity: 0.8;
+  margin-bottom: 5px;
+}
+
+/* Ensure text areas have reasonable height */
+.command-details textarea {
+  width: 100%;
+  min-height: 60px;
+  resize: vertical;
+}
+
+
+/* Format info styles */
+.format-info {
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 20px;
+}
+
+.format-info ul {
+  margin-top: 5px;
+  padding-left: 20px;
+}
+
+.format-info li {
+  margin-bottom: 3px;
+  font-family: var(--font-monospace);
+  font-size: 0.9em;
+}
+
+/* Test format section */
+.test-format-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 20px;
+}
+
+.test-format-container input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.test-format-container button {
+  align-self: flex-start;
+}
+
+.test-result {
+  font-family: var(--font-monospace);
+  margin-top: 10px;
+  padding: 5px;
+  background-color: var(--background-primary);
+  border-radius: 4px;
+}
