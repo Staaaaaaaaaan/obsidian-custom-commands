@@ -1,5 +1,6 @@
 # Obsidian specific
 .obsidian/
+data.json
 
 # Node dependencies
 node_modules/
