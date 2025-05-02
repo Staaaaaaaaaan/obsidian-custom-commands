@@ -10,12 +10,12 @@ class CustomCommandsSettingTab extends PluginSettingTab {
 
   display() {
     const { containerEl } = this;
-    //containerEl.empty();
-    
+    containerEl.empty(); // Clear previous settings to avoid duplication
+
     // Add button to create new command
     new Setting(containerEl)
       .setName('Add new command')
-      .setDesc('Create a new custom command') // Updated description
+      .setDesc('Create a new custom command')
       .addButton(button => button
         .setButtonText('Add command')
         .setCta()
@@ -24,16 +24,21 @@ class CustomCommandsSettingTab extends PluginSettingTab {
             const newCommand = {
             id: "new-command", // Will be normalized on name change
             type: 'open', // Default to 'open' type
-            name: 'New Command',
+            name: 'New command', // Sentence case
             path: '', // For 'open' and 'create'
             templatePath: '', // For 'create'
             snippet: '', // For 'insert'
             commandIds: '' // For 'sequence'
             };
-            
+
             // Generate ID from name (lowercase with spaces replaced by hyphens)
+            // Ensure uniqueness or handle collisions if necessary
             newCommand.id = newCommand.name.toLowerCase().replace(/\s+/g, '-');
-            
+            // Basic collision handling (append timestamp if ID exists)
+            if (this.plugin.settings.commands.some(cmd => cmd.id === newCommand.id)) {
+                newCommand.id = `${newCommand.id}-${Date.now()}`;
+            }
+
             this.plugin.settings.commands.push(newCommand);
           await this.plugin.saveSettings();
           this.display(); // Refresh the settings panel
@@ -42,7 +47,8 @@ class CustomCommandsSettingTab extends PluginSettingTab {
     // Display existing commands
     this.plugin.settings.commands.forEach((command, index) => {
       const commandSetting = new Setting(containerEl)
-      .setClass('command-setting'); // Main setting row for the command
+      .setClass('command-setting') // Main setting row for the command
+      .addClass('custom-commands-setting-item'); // Add specific class for CSS targeting
 
       // --- Command Type Dropdown ---
       commandSetting.addDropdown(dropdown => dropdown
@@ -68,11 +74,21 @@ class CustomCommandsSettingTab extends PluginSettingTab {
       .setPlaceholder('Command name')
       .setValue(command.name)
       .onChange(async (value) => {
+        const oldId = this.plugin.settings.commands[index].id;
+        const newId = value.toLowerCase().replace(/\s+/g, '-');
         this.plugin.settings.commands[index].name = value;
+        // Update ID based on name, ensuring uniqueness
+        if (oldId !== newId) {
+            let finalId = newId;
+            let counter = 1;
+            // Check if the new ID already exists (excluding the current command being renamed)
+            while (this.plugin.settings.commands.some((cmd, i) => i !== index && cmd.id === finalId)) {
+                finalId = `${newId}-${counter++}`;
+            }
+            this.plugin.settings.commands[index].id = finalId;
+        }
         await this.plugin.saveSettings();
-        // No need to re-register just for name change if ID remains stable
-        // However, Obsidian hotkeys link to the command *name* shown in settings,
-        // so re-registering ensures the hotkey list updates if the name changes.
+        // Re-register commands after name/ID change
         this.plugin.registerCommands();
       }));
 
@@ -80,7 +96,7 @@ class CustomCommandsSettingTab extends PluginSettingTab {
       switch (command.type) {
       case 'open':
         commandSetting.addText(text => text
-        .setPlaceholder('Path: daily/{{date}}.md)')
+        .setPlaceholder('Path: daily/{{date}}.md') // Sentence case
         .setValue(command.path || '')
         .onChange(async (value) => {
           this.plugin.settings.commands[index].path = normalizePath(value);
@@ -90,16 +106,16 @@ class CustomCommandsSettingTab extends PluginSettingTab {
         break;
       case 'create':
         commandSetting.addText(text => text
-        .setPlaceholder('New Path: notes/{{date}}.md')
+        .setPlaceholder('New path: notes/{{date}}.md') // Sentence case
         .setValue(command.path || '')
         .onChange(async (value) => {
           this.plugin.settings.commands[index].path = normalizePath(value);
           await this.plugin.saveSettings();
         })
         .inputEl.addClass('custom-command-input-full-width'));
-        
+
         commandSetting.addText(text => text
-        .setPlaceholder('Template Path (Optional)')
+        .setPlaceholder('Template path (optional)') // Sentence case
         .setValue(command.templatePath || '')
         .onChange(async (value) => {
           this.plugin.settings.commands[index].templatePath = normalizePath(value);
@@ -119,7 +135,7 @@ class CustomCommandsSettingTab extends PluginSettingTab {
         break;
       case 'sequence':
         commandSetting.addText(text => text
-          .setPlaceholder('Command Names (comma-sep)')
+          .setPlaceholder('Command names (comma-separated)') // Sentence case
           .setValue(command.commandIds || '') // Keep using commandIds field internally
           .onChange(async (value) => {
             this.plugin.settings.commands[index].commandIds = value; // Store the names string
@@ -128,24 +144,6 @@ class CustomCommandsSettingTab extends PluginSettingTab {
           .inputEl.addClass('custom-command-input-full-width'));
           break;
       }
-
-      // // Add CSS to the document for full-width inputs
-      // document.head.querySelector('style.custom-commands-styles') || 
-      // document.head.appendChild(createEl('style', {
-      //   attr: { 'class': 'custom-commands-styles' },
-      //   text: `
-      //     .custom-command-input-full-width {
-      //   flex-grow: 1 !important;
-      //   margin-right: 8px;
-      //     }
-      //     .command-setting .setting-item-control {
-      //   display: flex;
-      //   flex-wrap: nowrap;
-      //   flex-grow: 1;
-      //   justify-content: flex-end;
-      //     }
-      //   `
-      // }));
 
       // Delete button
       commandSetting.addButton(button => button
@@ -163,9 +161,9 @@ class CustomCommandsSettingTab extends PluginSettingTab {
     const commandInfo = containerEl.createEl('p');
     commandInfo.innerHTML = 'Create custom commands to <strong>open</strong> notes, <strong>create</strong> new notes at a specified path, <strong>insert</strong> text or code snippets, or run a combination <strong>sequence</strong> of other commands. To set hotkeys for these commands, go to <strong>Settings → Hotkeys</strong> and search for the command name.';
     commandInfo.style.marginBottom = '0.5em'; // Reduce space after header
-    
+
     new Setting(containerEl)
-      .setName('New note pption')
+      .setName('New note option') // Sentence case
       .setDesc('Open notes in new tab (leaf), window, or current tab?')
       .addDropdown(dropdown => dropdown
         .addOption('true', 'New')
@@ -181,8 +179,6 @@ class CustomCommandsSettingTab extends PluginSettingTab {
 
           this.plugin.settings.leaf = actualValue;
           await this.plugin.saveSettings();
-          // No need to call this.display() here, the setting is saved.
-          // Reloading the settings tab will show the correct value.
         }));
 
     // Add horizontal separator
@@ -243,7 +239,6 @@ class CustomCommandsSettingTab extends PluginSettingTab {
     ].forEach(item => {
       formatList.createEl('li', { text: item });
     });
-
   }
 }
 
@@ -251,13 +246,13 @@ const DEFAULT_SETTINGS = {
   commands: [
       {
         "id": "open-home",
-        "name": "Open Home",
+        "name": "Open home", // Sentence case
         "path": normalizePath("00/Home.md"),
         "type": "open"
       },
       {
         "id": "create-today",
-        "name": "Create Today",
+        "name": "Create today", // Sentence case
         "path": normalizePath("Daily/{{date}}-{{weekday}}"),
         "type": "create",
         "templatePath": "",
@@ -267,7 +262,7 @@ const DEFAULT_SETTINGS = {
       {
         "id": "start-day",
         "type": "insert",
-        "name": "Start Day",
+        "name": "Start day", // Sentence case
         "path": "",
         "templatePath": "",
         "snippet": "Hello! It's {{date}} at {{time}}. Have a lovely day!",
@@ -276,20 +271,23 @@ const DEFAULT_SETTINGS = {
       {
         "id": "sequence-today",
         "type": "sequence",
-        "name": "Sequence Today",
+        "name": "Sequence today", // Sentence case
         "path": "",
         "templatePath": "",
         "snippet": "",
-        "commandIds": "Create Today, Start Day"
+        "commandIds": "Create Today, Start Day" // Keep names as user enters them
       }
-  ],// Structure: { id: string, type: 'open'|'create'|'insert'|'sequence', name: string, path?: string, templatePath?: string, snippet?: string, commandIds?: string }
+  ],
     leaf: false // Default to opening in current tab
 };
 
 // --- Renamed Plugin Class ---
 module.exports = class CustomCommandsPlugin extends Plugin {
+  // Keep track of registered command IDs to manage removal
+  registeredCommandIds = new Set();
+
   async onload() {
-    // console.log('Loading Custom Commands Plugin'); // Renamed
+    // console.log('Loading Custom Commands Plugin');
 
     // Load settings
     await this.loadSettings();
@@ -298,7 +296,7 @@ module.exports = class CustomCommandsPlugin extends Plugin {
     this.registerCommands();
 
     // Add settings tab
-    this.addSettingTab(new CustomCommandsSettingTab(this.app, this)); // Use renamed tab
+    this.addSettingTab(new CustomCommandsSettingTab(this.app, this));
   }
 
   async loadSettings() {
@@ -306,6 +304,11 @@ module.exports = class CustomCommandsPlugin extends Plugin {
     // Ensure default type for older commands if necessary
     this.settings.commands.forEach(cmd => {
         if (!cmd.type) cmd.type = 'open';
+        // Ensure all commands have an ID (for older versions)
+        if (!cmd.id) {
+            cmd.id = cmd.name.toLowerCase().replace(/\s+/g, '-');
+            // Handle potential collisions during migration if needed
+        }
     });
   }
 
@@ -315,28 +318,30 @@ module.exports = class CustomCommandsPlugin extends Plugin {
 
   // Register or re-register all commands from settings
   registerCommands() {
-    // Use a more robust way to track our commands
-    const registeredCommandIds = new Set(this.settings.commands.map(cmd => `custom-cmd-${cmd.id}`));
+    const newRegisteredIds = new Set();
 
-    // Iterate over existing commands and remove ones that are ours but no longer in settings
-    Object.keys(this.app.commands.commands).forEach(commandId => {
-        if (commandId.startsWith(`${this.manifest.id}:custom-cmd-`) && !registeredCommandIds.has(commandId.split(':')[1])) {
-            // This command is one of ours but isn't in the current settings list, remove it
-            // Note: Obsidian's API doesn't have a direct 'removeCommand'.
-            // We might need to manage this differently, e.g., by storing registered command objects
-            // and detaching them, or simply letting them be until reload.
-            // For now, we'll rely on the fact that addCommand overwrites existing ones with the same ID.
-            // A better approach might be needed for true removal without reload.
-            console.log(`Stale command detected (will be overwritten or remain until reload): ${commandId}`);
+    // Unregister commands that are no longer in settings or have changed ID
+    this.registeredCommandIds.forEach(fullCommandId => {
+      const commandIdWithoutPrefix = fullCommandId.split(':')[1];
+      // Check if the command ID (without prefix) still exists in the current settings
+      if (!this.settings.commands.some(cmd => `custom-cmd-${cmd.id}` === commandIdWithoutPrefix)) {
+        // Use app.commands.removeCommand if available (check Obsidian API version if needed)
+        if (this.app.commands.removeCommand) {
+            this.app.commands.removeCommand(fullCommandId);
+            // console.log(`Unregistered command: ${fullCommandId}`);
+        } else {
+            // Fallback or log if removeCommand is not available in target minAppVersion
+            console.warn(`Command ${fullCommandId} removed from settings, but removeCommand API is not available.`);
         }
+      }
     });
+    this.registeredCommandIds.clear(); // Clear the old set
 
-
-    // Register each custom command
+    // Register each custom command from current settings
     this.settings.commands.forEach(command => {
-      const commandId = `custom-cmd-${command.id}`;
+      const fullCommandId = `${this.manifest.id}:custom-cmd-${command.id}`;
       this.addCommand({
-        id: commandId,
+        id: `custom-cmd-${command.id}`, // ID used within the plugin manifest context
         name: command.name,
         callback: () => {
           switch (command.type) {
@@ -362,7 +367,13 @@ module.exports = class CustomCommandsPlugin extends Plugin {
           }
         }
       });
+      // Add the full command ID (including plugin prefix) to the set of currently registered commands
+      this.registeredCommandIds.add(fullCommandId);
+      newRegisteredIds.add(fullCommandId); // Track newly registered/updated IDs
     });
+
+     // Update the tracked set
+     this.registeredCommandIds = newRegisteredIds;
   }
 
   // --- New Command Implementation Methods ---
@@ -448,17 +459,11 @@ module.exports = class CustomCommandsPlugin extends Plugin {
 
     // Get all available commands (core, plugins, custom)
     const allCommands = this.app.commands.commands;
-    
+
     let notFound = [];
-    
-    // // Log all available commands for debugging
-    // Object.keys(allCommands).forEach(id => {
-    //   console.log(`Command ID: ${id}, Name: ${allCommands[id].name}, Type: ${allCommands[id].type}, Command: ${allCommands[id].command}, Description: ${allCommands[id].description}, Category: ${allCommands[id].category}`,
-    //     allCommands[id].name === 'custom-cmd' ? ' (Custom Command)' : ''); // Custom command check
-    // });
 
     for (const name of commandNames) {
-      
+
       // Find the command ID by its name (case-insensitive search is safer)
       // Find the command ID by its name, ignoring plugin prefixes
       const commandId = Object.keys(allCommands).find(id => {
@@ -466,12 +471,12 @@ module.exports = class CustomCommandsPlugin extends Plugin {
         // Convert to lowercase for case-insensitive matching
         const lowerCommandName = commandName.toLowerCase();
         const lowerSearchName = name.toLowerCase();
-        
+
         // Direct match check
         if (lowerCommandName === lowerSearchName) {
           return true;
         }
-        
+
         // Check for "Plugin: Command Name" format
         const colonIndex = lowerCommandName.indexOf(': ');
         if (colonIndex !== -1) {
@@ -479,7 +484,7 @@ module.exports = class CustomCommandsPlugin extends Plugin {
           const strippedName = lowerCommandName.substring(colonIndex + 2);
           return strippedName === lowerSearchName;
         }
-        
+
         return false;
       });
 
@@ -489,6 +494,8 @@ module.exports = class CustomCommandsPlugin extends Plugin {
           // Execute the command by its found ID
           await this.app.commands.executeCommandById(commandId);
           // Optional: Add a small delay if commands need time to complete UI updates
+          // Use Obsidian's sleep function if available, otherwise basic setTimeout
+          const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
           await sleep(50);
         } catch (error) {
           new Notice(`Error executing command "${name}": ${error.message}`);
@@ -607,33 +614,23 @@ module.exports = class CustomCommandsPlugin extends Plugin {
         return;
       }
 
-      // Check if path includes .md extension, add it if not
-      if (!notePath.endsWith('.md')) {
-        notePath = notePath + '.md';
-      }
-
-      // Try to find the file
-      let file = this.app.vault.getAbstractFileByPath(notePath);
-
-      // If not found by direct path, search for it by name (less reliable with folders)
-      // Consider removing this or making it optional if paths are expected to be precise
-      if (!file) {
-          console.log(`File not found at exact path: ${notePath}. Searching by name...`);
-          const files = this.app.vault.getFiles();
-          // This find is potentially ambiguous if multiple files have the same name
-          file = files.find(f =>
-              f.path.toLowerCase() === notePath.toLowerCase() || // Check full path case-insensitively first
-              f.name.toLowerCase() === notePath.substring(notePath.lastIndexOf('/') + 1).toLowerCase() // Then check base name
-          );
-      }
-
+      // Use getFirstLinkpathDest to resolve the path to a TFile
+      // The second argument is the source path (current file), empty string means resolve from vault root
+      const file = this.app.metadataCache.getFirstLinkpathDest(notePath, '');
 
       if (file instanceof TFile) {
-        // Open the file in a new leaf/tab
+        // Open the file in the configured leaf/tab/window
         await this.app.workspace.getLeaf(this.settings.leaf).openFile(file);
       } else {
-        new Notice(`Note "${notePath}" not found or is not a file.`);
-        console.log(`Failed to find or open file: ${notePath}`);
+        // Handle case where the path doesn't resolve to a file
+        // Check if it might be a folder path or just doesn't exist
+        const abstractItem = this.app.vault.getAbstractFileByPath(normalizePath(notePath));
+        if (abstractItem) {
+             new Notice(`Path "${notePath}" points to a folder, not a file.`);
+        } else {
+             new Notice(`Note "${notePath}" not found.`);
+        }
+        console.log(`Failed to find or open file using getFirstLinkpathDest: ${notePath}`);
       }
     } catch (error) {
       console.error('Error opening note:', error);
@@ -642,7 +639,9 @@ module.exports = class CustomCommandsPlugin extends Plugin {
   }
 
   onunload() {
-    // console.log('Unloading Custom Commands Plugin'); // Renamed
-    // Consider cleanup if commands were registered in a way that needs explicit removal
+    // console.log('Unloading Custom Commands Plugin');
+    // Consider if commands need explicit cleanup on unload, though Obsidian usually handles this.
+    // If using removeCommand, ensure it's called appropriately if needed during unload,
+    // but typically commands are removed when the plugin is disabled/unloaded automatically.
   }
 }

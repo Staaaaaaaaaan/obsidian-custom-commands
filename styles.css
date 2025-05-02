@@ -217,14 +217,16 @@
 @media screen and (max-width: 480px) {
 
   /* Even more compact layout for very small screens */
-  .setting-item {
+  /* Target the specific class added in main.js */
+  .custom-commands-setting-item .setting-item {
     padding: 10px;
   }
 
   /* Further increase touch targets for very small screens */
-  .command-setting button,
-  .command-setting select,
-  .command-setting input[type="text"] {
+  /* Target buttons/selects within the plugin's specific setting items */
+  .custom-commands-setting-item button,
+  .custom-commands-setting-item select,
+  .custom-commands-setting-item input[type="text"] {
     min-height: 44px;
   }
 }
