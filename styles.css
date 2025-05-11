@@ -215,11 +215,10 @@
 
 /* Extra small screens like phones in portrait mode */
 @media screen and (max-width: 480px) {
-
   /* Even more compact layout for very small screens */
-  /* Target the specific class added in main.js */
-  .custom-commands-setting-item .setting-item {
-    padding: 10px;
+  /* Apply only to our plugin's settings instead of all setting-items */
+  .command-setting {
+    padding: 8px;
   }
 
   /* Further increase touch targets for very small screens */
