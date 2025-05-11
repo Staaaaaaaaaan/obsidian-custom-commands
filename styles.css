@@ -222,10 +222,9 @@
   }
 
   /* Further increase touch targets for very small screens */
-  /* Target buttons/selects within the plugin's specific setting items */
-  .custom-commands-setting-item button,
-  .custom-commands-setting-item select,
-  .custom-commands-setting-item input[type="text"] {
+  .command-setting button,
+  .command-setting select,
+  .command-setting input[type="text"] {
     min-height: 44px;
   }
 }
