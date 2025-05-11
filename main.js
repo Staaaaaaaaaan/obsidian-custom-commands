@@ -10,7 +10,7 @@ class CustomCommandsSettingTab extends PluginSettingTab {
 
   display() {
     const { containerEl } = this;
-    //containerEl.empty();
+    containerEl.empty();
     
     // Add button to create new command
     new Setting(containerEl)
@@ -24,7 +24,7 @@ class CustomCommandsSettingTab extends PluginSettingTab {
             const newCommand = {
             id: "new-command", // Will be normalized on name change
             type: 'open', // Default to 'open' type
-            name: 'New Command',
+            name: 'New command',
             path: '', // For 'open' and 'create'
             templatePath: '', // For 'create'
             snippet: '', // For 'insert'
@@ -90,7 +90,7 @@ class CustomCommandsSettingTab extends PluginSettingTab {
         break;
       case 'create':
         commandSetting.addText(text => text
-        .setPlaceholder('New Path: notes/{{date}}.md')
+        .setPlaceholder('New path: notes/{{date}}.md')
         .setValue(command.path || '')
         .onChange(async (value) => {
           this.plugin.settings.commands[index].path = normalizePath(value);
@@ -99,7 +99,7 @@ class CustomCommandsSettingTab extends PluginSettingTab {
         .inputEl.addClass('custom-command-input-full-width'));
         
         commandSetting.addText(text => text
-        .setPlaceholder('Template Path (Optional)')
+        .setPlaceholder('Template path (Optional)')
         .setValue(command.templatePath || '')
         .onChange(async (value) => {
           this.plugin.settings.commands[index].templatePath = normalizePath(value);
@@ -119,7 +119,7 @@ class CustomCommandsSettingTab extends PluginSettingTab {
         break;
       case 'sequence':
         commandSetting.addText(text => text
-          .setPlaceholder('Command Names (comma-sep)')
+          .setPlaceholder('Command names (comma-sep)')
           .setValue(command.commandIds || '') // Keep using commandIds field internally
           .onChange(async (value) => {
             this.plugin.settings.commands[index].commandIds = value; // Store the names string
@@ -165,7 +165,7 @@ class CustomCommandsSettingTab extends PluginSettingTab {
     commandInfo.style.marginBottom = '0.5em'; // Reduce space after header
     
     new Setting(containerEl)
-      .setName('New note pption')
+      .setName('New note option')
       .setDesc('Open notes in new tab (leaf), window, or current tab?')
       .addDropdown(dropdown => dropdown
         .addOption('true', 'New')
@@ -251,13 +251,13 @@ const DEFAULT_SETTINGS = {
   commands: [
       {
         "id": "open-home",
-        "name": "Open Home",
+        "name": "Open home",
         "path": normalizePath("00/Home.md"),
         "type": "open"
       },
       {
         "id": "create-today",
-        "name": "Create Today",
+        "name": "Create today",
         "path": normalizePath("Daily/{{date}}-{{weekday}}"),
         "type": "create",
         "templatePath": "",
@@ -267,7 +267,7 @@ const DEFAULT_SETTINGS = {
       {
         "id": "start-day",
         "type": "insert",
-        "name": "Start Day",
+        "name": "Start day",
         "path": "",
         "templatePath": "",
         "snippet": "Hello! It's {{date}} at {{time}}. Have a lovely day!",
@@ -276,11 +276,11 @@ const DEFAULT_SETTINGS = {
       {
         "id": "sequence-today",
         "type": "sequence",
-        "name": "Sequence Today",
+        "name": "Sequence today",
         "path": "",
         "templatePath": "",
         "snippet": "",
-        "commandIds": "Create Today, Start Day"
+        "commandIds": "Create today, Start day"
       }
   ],// Structure: { id: string, type: 'open'|'create'|'insert'|'sequence', name: string, path?: string, templatePath?: string, snippet?: string, commandIds?: string }
     leaf: false // Default to opening in current tab
@@ -315,54 +315,54 @@ module.exports = class CustomCommandsPlugin extends Plugin {
 
   // Register or re-register all commands from settings
   registerCommands() {
-    // Use a more robust way to track our commands
-    const registeredCommandIds = new Set(this.settings.commands.map(cmd => `custom-cmd-${cmd.id}`));
+    // Create a set to track currently registered command IDs
+    const newCommandIds = new Set();
 
-    // Iterate over existing commands and remove ones that are ours but no longer in settings
-    Object.keys(this.app.commands.commands).forEach(commandId => {
-        if (commandId.startsWith(`${this.manifest.id}:custom-cmd-`) && !registeredCommandIds.has(commandId.split(':')[1])) {
-            // This command is one of ours but isn't in the current settings list, remove it
-            // Note: Obsidian's API doesn't have a direct 'removeCommand'.
-            // We might need to manage this differently, e.g., by storing registered command objects
-            // and detaching them, or simply letting them be until reload.
-            // For now, we'll rely on the fact that addCommand overwrites existing ones with the same ID.
-            // A better approach might be needed for true removal without reload.
-            console.log(`Stale command detected (will be overwritten or remain until reload): ${commandId}`);
+    // Get plugin ID prefix to construct full command IDs
+    const pluginPrefix = this.manifest.id + ":";
+
+    // First, unregister any previously registered commands that aren't in settings anymore
+    if (this.registeredCommandIds) {
+      this.registeredCommandIds.forEach(cmdId => {
+        if (this.app.commands.removeCommand) {
+          this.app.commands.removeCommand(cmdId);
         }
-    });
+      });
+    }
 
+    // Initialize tracking set if it doesn't exist yet
+    if (!this.registeredCommandIds) {
+      this.registeredCommandIds = new Set();
+    } else {
+      this.registeredCommandIds.clear();
+    }
 
     // Register each custom command
     this.settings.commands.forEach(command => {
       const commandId = `custom-cmd-${command.id}`;
+      const fullCommandId = pluginPrefix + commandId;
+
       this.addCommand({
+        // Rest of your existing command registration
         id: commandId,
         name: command.name,
         callback: () => {
-          switch (command.type) {
-            case 'open':
-              const resolvedOpenPath = this.resolveDatePlaceholders(command.path);
-              this.openNote(resolvedOpenPath);
-              break;
-            case 'create':
-              const resolvedCreatePath = this.resolveDatePlaceholders(command.path);
-              const resolvedTemplatePath = this.resolveDatePlaceholders(command.templatePath); // Also resolve template path
-              this.createNote(resolvedCreatePath, resolvedTemplatePath);
-              break;
-            case 'insert':
-              const resolvedSnippet = this.resolveDatePlaceholders(command.snippet);
-              this.insertSnippet(resolvedSnippet);
-              break;
-            case 'sequence':
-              // Pass the commandIds string (which now contains names)
-              this.runCommandSequence(command.commandIds);
-              break;
-            default:
-              console.warn(`Unknown command type: ${command.type}`);
-          }
+          // Your existing callback code
         }
       });
+
+      // Track this command ID for future cleanup
+      this.registeredCommandIds.add(fullCommandId);
+      newCommandIds.add(fullCommandId);
     });
+  }
+
+  // Add a cleanup in onunload:
+  onunload() {
+    if (this.registeredCommandIds && this.app.commands.removeCommand) {
+      this.registeredCommandIds.forEach(cmdId =>
+        this.app.commands.removeCommand(cmdId));
+    }
   }
 
   // --- New Command Implementation Methods ---
@@ -607,33 +607,18 @@ module.exports = class CustomCommandsPlugin extends Plugin {
         return;
       }
 
-      // Check if path includes .md extension, add it if not
+      // Ensure .md extension
       if (!notePath.endsWith('.md')) {
         notePath = notePath + '.md';
       }
 
-      // Try to find the file
-      let file = this.app.vault.getAbstractFileByPath(notePath);
-
-      // If not found by direct path, search for it by name (less reliable with folders)
-      // Consider removing this or making it optional if paths are expected to be precise
-      if (!file) {
-          console.log(`File not found at exact path: ${notePath}. Searching by name...`);
-          const files = this.app.vault.getFiles();
-          // This find is potentially ambiguous if multiple files have the same name
-          file = files.find(f =>
-              f.path.toLowerCase() === notePath.toLowerCase() || // Check full path case-insensitively first
-              f.name.toLowerCase() === notePath.substring(notePath.lastIndexOf('/') + 1).toLowerCase() // Then check base name
-          );
-      }
-
+      // Use getFirstLinkpathDest to resolve the path to a file
+      let file = this.app.metadataCache.getFirstLinkpathDest(notePath, '');
 
       if (file instanceof TFile) {
-        // Open the file in a new leaf/tab
         await this.app.workspace.getLeaf(this.settings.leaf).openFile(file);
       } else {
-        new Notice(`Note "${notePath}" not found or is not a file.`);
-        console.log(`Failed to find or open file: ${notePath}`);
+        new Notice(`Note "${notePath}" not found.`);
       }
     } catch (error) {
       console.error('Error opening note:', error);
