@@ -315,16 +315,11 @@ module.exports = class CustomCommandsPlugin extends Plugin {
 
   // Register or re-register all commands from settings
   registerCommands() {
-    // Create a set to track currently registered command IDs
-    const newCommandIds = new Set();
-
-    // Get plugin ID prefix to construct full command IDs
-    const pluginPrefix = this.manifest.id + ":";
-
-    // First, unregister any previously registered commands that aren't in settings anymore
+    // First, unregister any previously registered commands
     if (this.registeredCommandIds) {
       this.registeredCommandIds.forEach(cmdId => {
         if (this.app.commands.removeCommand) {
+          // Use the proper command removal API
           this.app.commands.removeCommand(cmdId);
         }
       });
@@ -339,21 +334,53 @@ module.exports = class CustomCommandsPlugin extends Plugin {
 
     // Register each custom command
     this.settings.commands.forEach(command => {
+      // Keep the command ID format consistent with what worked before
       const commandId = `custom-cmd-${command.id}`;
-      const fullCommandId = pluginPrefix + commandId;
-
-      this.addCommand({
-        // Rest of your existing command registration
-        id: commandId,
-        name: command.name,
-        callback: () => {
-          // Your existing callback code
-        }
-      });
-
-      // Track this command ID for future cleanup
-      this.registeredCommandIds.add(fullCommandId);
-      newCommandIds.add(fullCommandId);
+      const fullCommandId = `${this.manifest.id}:${commandId}`;
+      
+      try {
+        this.addCommand({
+          id: commandId,
+          name: command.name,
+          callback: () => {
+            // Add proper error handling in callback
+            try {
+              switch (command.type) {
+                case 'open':
+                  const resolvedOpenPath = this.resolveDatePlaceholders(command.path);
+                  this.openNote(resolvedOpenPath);
+                  break;
+                case 'create':
+                  const resolvedCreatePath = this.resolveDatePlaceholders(command.path);
+                  const resolvedTemplatePath = this.resolveDatePlaceholders(command.templatePath);
+                  this.createNote(resolvedCreatePath, resolvedTemplatePath);
+                  break;
+                case 'insert':
+                  const resolvedSnippet = this.resolveDatePlaceholders(command.snippet);
+                  this.insertSnippet(resolvedSnippet);
+                  break;
+                case 'sequence':
+                  this.runCommandSequence(command.commandIds);
+                  break;
+                default:
+                  console.warn(`Unknown command type: ${command.type}`);
+                  new Notice(`Unknown command type: ${command.type}`);
+              }
+            } catch (error) {
+              console.error(`Error executing command ${command.name}:`, error);
+              new Notice(`Error executing command ${command.name}: ${error.message}`);
+            }
+          }
+        });
+        
+        // Track this command ID for future cleanup
+        this.registeredCommandIds.add(fullCommandId);
+        
+        // Debug logging - remove in production version
+        // console.log(`Registered command: ${command.name} (ID: ${commandId})`);
+      } catch (error) {
+        console.error(`Failed to register command ${command.name}:`, error);
+      }
     });
   }
 
