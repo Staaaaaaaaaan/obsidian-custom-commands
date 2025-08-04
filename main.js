@@ -11,70 +11,66 @@ class CustomCommandsSettingTab extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    
+
     // Add button to create new command
     new Setting(containerEl)
       .setName('Add new command')
-      .setDesc('Create a new custom command') // Updated description
+      .setDesc('Create a new custom command')
       .addButton(button => button
         .setButtonText('Add command')
         .setCta()
         .onClick(async () => {
-            // Create a new command with a default ID based on the name
-            const newCommand = {
-            id: "new-command", // Will be normalized on name change
-            type: 'open', // Default to 'open' type
-            name: 'New command',
-            path: '', // For 'open' and 'create'
-            templatePath: '', // For 'create'
-            snippet: '', // For 'insert'
-            commandIds: '' // For 'sequence'
-            };
-            
-            // Generate ID from name (lowercase with spaces replaced by hyphens)
-            newCommand.id = newCommand.name.toLowerCase().replace(/\s+/g, '-');
-            
-            this.plugin.settings.commands.push(newCommand);
+          const newName = 'New command';
+          // Generate unique ID for the new command
+          const newId = generateUniqueId(newName, this.plugin.settings.commands);
+          const newCommand = {
+            id: newId,
+            type: 'open',
+            name: newName,
+            path: '',
+            templatePath: '',
+            snippet: '',
+            commandIds: ''
+          };
+          this.plugin.settings.commands.push(newCommand);
           await this.plugin.saveSettings();
-          this.display(); // Refresh the settings panel
+          this.display();
         }));
 
     // Display existing commands
     this.plugin.settings.commands.forEach((command, index) => {
       const commandSetting = new Setting(containerEl)
-      .setClass('command-setting'); // Main setting row for the command
+        .setClass('command-setting');
 
       // --- Command Type Dropdown ---
       commandSetting.addDropdown(dropdown => dropdown
-      .addOption('open', 'Open')
-      .addOption('create', 'Create')
-      .addOption('insert', 'Insert')
-      .addOption('sequence', 'Sequence')
-      .setValue(command.type || 'open') // Default to 'open' if type is missing
-      .onChange(async (value) => {
-        this.plugin.settings.commands[index].type = value;
-        // Clear out fields not relevant to the new type
-        if (value !== 'open' && value !== 'create') this.plugin.settings.commands[index].path = '';
-        if (value !== 'create') this.plugin.settings.commands[index].templatePath = '';
-        if (value !== 'insert') this.plugin.settings.commands[index].snippet = '';
-        if (value !== 'sequence') this.plugin.settings.commands[index].commandIds = '';
-        await this.plugin.saveSettings();
-        this.plugin.registerCommands(); // Re-register needed if type changes behavior
-        this.display(); // Refresh UI to show relevant fields
-      }));
+        .addOption('open', 'Open')
+        .addOption('create', 'Create')
+        .addOption('insert', 'Insert')
+        .addOption('sequence', 'Sequence')
+        .setValue(command.type || 'open')
+        .onChange(async (value) => {
+          this.plugin.settings.commands[index].type = value;
+          if (value !== 'open' && value !== 'create') this.plugin.settings.commands[index].path = '';
+          if (value !== 'create') this.plugin.settings.commands[index].templatePath = '';
+          if (value !== 'insert') this.plugin.settings.commands[index].snippet = '';
+          if (value !== 'sequence') this.plugin.settings.commands[index].commandIds = '';
+          await this.plugin.saveSettings();
+          this.plugin.registerCommands();
+          this.display();
+        }));
 
-      // Command name input
+      // --- Command name input with unique ID update ---
       commandSetting.addText(text => text
-      .setPlaceholder('Command name')
-      .setValue(command.name)
-      .onChange(async (value) => {
-        this.plugin.settings.commands[index].name = value;
-        await this.plugin.saveSettings();
-        // No need to re-register just for name change if ID remains stable
-        // However, Obsidian hotkeys link to the command *name* shown in settings,
-        // so re-registering ensures the hotkey list updates if the name changes.
-        this.plugin.registerCommands();
-      }));
+        .setPlaceholder('Command name')
+        .setValue(command.name)
+        .onChange(async (value) => {
+          this.plugin.settings.commands[index].name = value;
+          // Generate a unique ID for the new name, skipping this command's own index
+          this.plugin.settings.commands[index].id = generateUniqueId(value, this.plugin.settings.commands, index);
+          await this.plugin.saveSettings();
+          this.plugin.registerCommands();
+        }));
 
       // --- Conditional Inputs that fill remaining space ---
       switch (command.type) {
@@ -657,4 +653,21 @@ module.exports = class CustomCommandsPlugin extends Plugin {
     // console.log('Unloading Custom Commands Plugin'); // Renamed
     // Consider cleanup if commands were registered in a way that needs explicit removal
   }
+}
+
+// --- Utility: Generate a unique ID based on name ---
+function generateUniqueId(baseName, commands, skipIndex = -1) {
+  let baseId = baseName.toLowerCase().replace(/\s+/g, '-');
+  let id = baseId;
+  let counter = 2;
+  // Check for duplicates (skipIndex is used to skip the current command when renaming)
+  while (commands.some((cmd, idx) => idx !== skipIndex && cmd.id === id)) {
+    id = `${baseId}-${counter++}`;
+  }
+  return id;
+}
+
+// Helper function for delays
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }

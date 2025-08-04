@@ -2,6 +2,7 @@
 .obsidian/
 data.json
 
+
 # Node dependencies
 node_modules/
 
@@ -13,5 +14,5 @@ build/
 .DS_Store
 Thumbs.db
 
-#Test files
+#
 test_files/
