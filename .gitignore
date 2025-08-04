@@ -12,3 +12,6 @@ build/
 # System files
 .DS_Store
 Thumbs.db
+
+#Test files
+test_files/
