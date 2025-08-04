@@ -1,5 +1,98 @@
 // main.js
-const { Plugin, Notice, Setting, PluginSettingTab, TFile, normalizePath} = require('obsidian');
+const { Plugin, Notice, Setting, PluginSettingTab, TFile, normalizePath, Modal, TextComponent } = require('obsidian');
+
+// Date picker modal
+class DatePickerModal extends Modal {
+  constructor(app, onSubmit) {
+    super(app);
+    this.onSubmit = onSubmit;
+    this.selectedDate = new Date();
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("h2", { text: "Select Date for Daily Note" });
+
+    // Date input
+    new Setting(contentEl)
+      .setName("Date")
+      .setDesc("Select the date for the daily note")
+      .addText(text => {
+        // Format today's date as YYYY-MM-DD for the input default
+        const today = new Date();
+        const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        
+        text
+          .setValue(dateStr)
+          .onChange(value => {
+            // Parse the date string
+            const parts = value.split('-');
+            if (parts.length === 3) {
+              const year = parseInt(parts[0]);
+              const month = parseInt(parts[1]) - 1; // JavaScript months are 0-indexed
+              const day = parseInt(parts[2]);
+              this.selectedDate = new Date(year, month, day);
+            }
+          });
+        
+        // Store the input element for focus
+        this.dateInput = text.inputEl;
+        this.dateInput.type = "date"; // Use HTML5 date picker
+      });
+
+    // Quick date buttons
+    new Setting(contentEl)
+      .setName("Quick select")
+      .setDesc("Choose a common date")
+      .addButton(button => button
+        .setButtonText("Today")
+        .onClick(() => {
+          this.selectedDate = new Date();
+          this.updateDateInput();
+        }))
+      .addButton(button => button
+        .setButtonText("Yesterday")
+        .onClick(() => {
+          const date = new Date();
+          date.setDate(date.getDate() - 1);
+          this.selectedDate = date;
+          this.updateDateInput();
+        }))
+      .addButton(button => button
+        .setButtonText("Tomorrow")
+        .onClick(() => {
+          const date = new Date();
+          date.setDate(date.getDate() + 1);
+          this.selectedDate = date;
+          this.updateDateInput();
+        }));
+
+    // Submit and Cancel buttons
+    new Setting(contentEl)
+      .addButton(button => button
+        .setButtonText("Create")
+        .setCta()
+        .onClick(() => {
+          this.close();
+          this.onSubmit(this.selectedDate);
+        }))
+      .addButton(button => button
+        .setButtonText("Cancel")
+        .onClick(() => {
+          this.close();
+        }));
+  }
+
+  updateDateInput() {
+    const dateStr = `${this.selectedDate.getFullYear()}-${String(this.selectedDate.getMonth() + 1).padStart(2, '0')}-${String(this.selectedDate.getDate()).padStart(2, '0')}`;
+    this.dateInput.value = dateStr;
+  }
+
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+}
 
 // --- Renamed Setting Tab ---
 class CustomCommandsSettingTab extends PluginSettingTab {
@@ -11,66 +104,71 @@ class CustomCommandsSettingTab extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-
+    
     // Add button to create new command
     new Setting(containerEl)
       .setName('Add new command')
-      .setDesc('Create a new custom command')
+      .setDesc('Create a new custom command') // Updated description
       .addButton(button => button
         .setButtonText('Add command')
         .setCta()
         .onClick(async () => {
-          const newName = 'New command';
-          // Generate unique ID for the new command
-          const newId = generateUniqueId(newName, this.plugin.settings.commands);
-          const newCommand = {
-            id: newId,
-            type: 'open',
-            name: newName,
-            path: '',
-            templatePath: '',
-            snippet: '',
-            commandIds: ''
-          };
-          this.plugin.settings.commands.push(newCommand);
+            // Create a new command with a default ID based on the name
+            const newCommand = {
+            id: "new-command", // Will be normalized on name change
+            type: 'open', // Default to 'open' type
+            name: 'New command',
+            path: '', // For 'open' and 'create'
+            templatePath: '', // For 'create'
+            snippet: '', // For 'insert'
+            commandIds: '' // For 'sequence'
+            };
+            
+            // Generate ID from name (lowercase with spaces replaced by hyphens)
+            newCommand.id = newCommand.name.toLowerCase().replace(/\s+/g, '-');
+            
+            this.plugin.settings.commands.push(newCommand);
           await this.plugin.saveSettings();
-          this.display();
+          this.display(); // Refresh the settings panel
         }));
 
     // Display existing commands
     this.plugin.settings.commands.forEach((command, index) => {
       const commandSetting = new Setting(containerEl)
-        .setClass('command-setting');
+      .setClass('command-setting'); // Main setting row for the command
 
       // --- Command Type Dropdown ---
       commandSetting.addDropdown(dropdown => dropdown
-        .addOption('open', 'Open')
-        .addOption('create', 'Create')
-        .addOption('insert', 'Insert')
-        .addOption('sequence', 'Sequence')
-        .setValue(command.type || 'open')
-        .onChange(async (value) => {
-          this.plugin.settings.commands[index].type = value;
-          if (value !== 'open' && value !== 'create') this.plugin.settings.commands[index].path = '';
-          if (value !== 'create') this.plugin.settings.commands[index].templatePath = '';
-          if (value !== 'insert') this.plugin.settings.commands[index].snippet = '';
-          if (value !== 'sequence') this.plugin.settings.commands[index].commandIds = '';
-          await this.plugin.saveSettings();
-          this.plugin.registerCommands();
-          this.display();
-        }));
+      .addOption('open', 'Open')
+      .addOption('create', 'Create')
+      .addOption('create-with-date', 'Create with Date')
+      .addOption('insert', 'Insert')
+      .addOption('sequence', 'Sequence')
+      .setValue(command.type || 'open') // Default to 'open' if type is missing
+      .onChange(async (value) => {
+        this.plugin.settings.commands[index].type = value;
+        // Clear out fields not relevant to the new type
+        if (value !== 'open' && value !== 'create' && value !== 'create-with-date') this.plugin.settings.commands[index].path = '';
+        if (value !== 'create' && value !== 'create-with-date') this.plugin.settings.commands[index].templatePath = '';
+        if (value !== 'insert') this.plugin.settings.commands[index].snippet = '';
+        if (value !== 'sequence') this.plugin.settings.commands[index].commandIds = '';
+        await this.plugin.saveSettings();
+        this.plugin.registerCommands(); // Re-register needed if type changes behavior
+        this.display(); // Refresh UI to show relevant fields
+      }));
 
-      // --- Command name input with unique ID update ---
+      // Command name input
       commandSetting.addText(text => text
-        .setPlaceholder('Command name')
-        .setValue(command.name)
-        .onChange(async (value) => {
-          this.plugin.settings.commands[index].name = value;
-          // Generate a unique ID for the new name, skipping this command's own index
-          this.plugin.settings.commands[index].id = generateUniqueId(value, this.plugin.settings.commands, index);
-          await this.plugin.saveSettings();
-          this.plugin.registerCommands();
-        }));
+      .setPlaceholder('Command name')
+      .setValue(command.name)
+      .onChange(async (value) => {
+        this.plugin.settings.commands[index].name = value;
+        await this.plugin.saveSettings();
+        // No need to re-register just for name change if ID remains stable
+        // However, Obsidian hotkeys link to the command *name* shown in settings,
+        // so re-registering ensures the hotkey list updates if the name changes.
+        this.plugin.registerCommands();
+      }));
 
       // --- Conditional Inputs that fill remaining space ---
       switch (command.type) {
@@ -94,18 +192,43 @@ class CustomCommandsSettingTab extends PluginSettingTab {
         })
         .inputEl.addClass('custom-command-input-full-width'));
         
+        // Template path on new line for 'create' (inline with CSS)
+        const createTemplateSetting = new Setting(containerEl)
+          .setClass('command-template-setting')
+          .addText(text => text
+            .setPlaceholder('Template path (optional): templates/daily.md')
+            .setValue(command.templatePath || '')
+            .onChange(async (value) => {
+              this.plugin.settings.commands[index].templatePath = normalizePath(value);
+              await this.plugin.saveSettings();
+            })
+            .inputEl.addClass('custom-command-input-full-width'));
+        break;
+      case 'create-with-date':
         commandSetting.addText(text => text
-        .setPlaceholder('Template path (Optional)')
-        .setValue(command.templatePath || '')
+        .setPlaceholder('New path: notes/{{date}}.md')
+        .setValue(command.path || '')
         .onChange(async (value) => {
-          this.plugin.settings.commands[index].templatePath = normalizePath(value);
+          this.plugin.settings.commands[index].path = normalizePath(value);
           await this.plugin.saveSettings();
         })
         .inputEl.addClass('custom-command-input-full-width'));
+        
+        // Template path on new line for 'create-with-date' (inline with CSS)
+        const createWithDateTemplateSetting = new Setting(containerEl)
+          .setClass('command-template-setting')
+          .addText(text => text
+            .setPlaceholder('Template path (optional): templates/daily.md')
+            .setValue(command.templatePath || '')
+            .onChange(async (value) => {
+              this.plugin.settings.commands[index].templatePath = normalizePath(value);
+              await this.plugin.saveSettings();
+            })
+            .inputEl.addClass('custom-command-input-full-width'));
         break;
       case 'insert':
         commandSetting.addTextArea(text => text
-        .setPlaceholder('Snippet to insert...')
+        .setPlaceholder('Snippet text...')
         .setValue(command.snippet || '')
         .onChange(async (value) => {
           this.plugin.settings.commands[index].snippet = value;
@@ -115,141 +238,52 @@ class CustomCommandsSettingTab extends PluginSettingTab {
         break;
       case 'sequence':
         commandSetting.addText(text => text
-          .setPlaceholder('Command names (comma-sep)')
-          .setValue(command.commandIds || '') // Keep using commandIds field internally
-          .onChange(async (value) => {
-            this.plugin.settings.commands[index].commandIds = value; // Store the names string
-            await this.plugin.saveSettings();
-          })
-          .inputEl.addClass('custom-command-input-full-width'));
-          break;
+        .setPlaceholder('Command names (comma-separated)...')
+        .setValue(command.commandIds || '')
+        .onChange(async (value) => {
+          this.plugin.settings.commands[index].commandIds = value;
+          await this.plugin.saveSettings();
+        })
+        .inputEl.addClass('custom-command-input-full-width'));
+        break;
       }
 
-      // // Add CSS to the document for full-width inputs
-      // document.head.querySelector('style.custom-commands-styles') || 
-      // document.head.appendChild(createEl('style', {
-      //   attr: { 'class': 'custom-commands-styles' },
-      //   text: `
-      //     .custom-command-input-full-width {
-      //   flex-grow: 1 !important;
-      //   margin-right: 8px;
-      //     }
-      //     .command-setting .setting-item-control {
-      //   display: flex;
-      //   flex-wrap: nowrap;
-      //   flex-grow: 1;
-      //   justify-content: flex-end;
-      //     }
-      //   `
-      // }));
-
-      // Delete button
+      // Remove button
       commandSetting.addButton(button => button
-      .setIcon('trash')
-      .setTooltip('Delete command')
+      .setButtonText('Remove')
+      .setWarning()
       .onClick(async () => {
         this.plugin.settings.commands.splice(index, 1);
         await this.plugin.saveSettings();
-        this.plugin.registerCommands(); // Re-register after deletion
+        this.plugin.registerCommands(); // Re-register when a command is removed
         this.display(); // Refresh the settings panel
       }));
     });
-
-    // Information about custom commands
-    const commandInfo = containerEl.createEl('p');
-    commandInfo.innerHTML = 'Create custom commands to <strong>open</strong> notes, <strong>create</strong> new notes at a specified path, <strong>insert</strong> text or code snippets, or run a combination <strong>sequence</strong> of other commands. To set hotkeys for these commands, go to <strong>Settings → Hotkeys</strong> and search for the command name.';
-    commandInfo.style.marginBottom = '0.5em'; // Reduce space after header
     
+    // --- New Setting for Leaf Behavior ---
     new Setting(containerEl)
-      .setName('New note option')
-      .setDesc('Open notes in new tab (leaf), window, or current tab?')
-      .addDropdown(dropdown => dropdown
-        .addOption('true', 'New')
-        .addOption('false', 'Current')
-        .addOption('window', 'Window')
-        .setValue(String(this.plugin.settings.leaf)) // Read the actual setting
+        .setName('Open in new tab')
+        .setDesc('If enabled, notes will open in a new tab. Otherwise, they open in the current tab.')
+        .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.leaf)
         .onChange(async (value) => {
-          // Parse the value back to the correct type before saving
-          let actualValue;
-          if (value === 'true') actualValue = true;
-          else if (value === 'false') actualValue = false;
-          else actualValue = value; // Should be 'window'
-
-          this.plugin.settings.leaf = actualValue;
-          await this.plugin.saveSettings();
-          // No need to call this.display() here, the setting is saved.
-          // Reloading the settings tab will show the correct value.
+            this.plugin.settings.leaf = value;
+            await this.plugin.saveSettings();
         }));
-
-    // Add horizontal separator
-    const separator = containerEl.createEl('hr');
-    separator.style.marginTop = '0.5em';
-    separator.style.marginBottom = '1.5em';
-    separator.style.opacity = '0.35'; // Make it slightly more visible
-    separator.style.width = '100%';  // Ensure full width
-
-    // Add test button for format preview
-    const testHeader = containerEl.createEl('h3', { text: 'Test date format' });
-    testHeader.style.marginBottom = '0.5em'; // Reduce space after header
-    testHeader.style.marginTop = '0em'; // Reduce space after header
-    const testContainer = containerEl.createEl('div');
-    testContainer.addClass('test-format-container');
-
-    const testInput = testContainer.createEl('input');
-    testInput.type = 'text';
-    testInput.placeholder = 'Enter format (e.g., daily/{{date:YYYY-MM-DD-dddd}}.md)';
-    testInput.value = 'Daily/{{year}}/{{date:MM-mmmm}}/{{date}}-{{weekday}}-{{time}}.md';
-
-    const testButton = testContainer.createEl('button');
-    testButton.setText('Test format');
-    testButton.addClass('mod-cta');
-    testButton.style.marginBottom = '0em'; // Reduce space after button
-
-    const testResult = testContainer.createEl('div');
-    testResult.addClass('test-result');
-    testResult.style.marginTop = '0em'; // Reduce space after paragraph
-
-    testButton.addEventListener('click', () => {
-      const format = testInput.value;
-      // Ensure resolveDatePlaceholders exists on the plugin instance
-      if (this.plugin.resolveDatePlaceholders) {
-          const result = this.plugin.resolveDatePlaceholders(format);
-          testResult.setText(`Result: ${result}`);
-      } else {
-          testResult.setText('Error: resolveDatePlaceholders function not found.');
-          console.error("resolveDatePlaceholders function missing on plugin instance.");
-      }
-    });
-
-    // Add section for date format templates
-
-    const formatIntro = containerEl.createEl('p', { text: 'Date placeholders:' });
-    formatIntro.style.marginTop = '0em'; // Reduce space after paragraph
-    formatIntro.style.marginBottom = '0em'; // Reduce space after paragraph
-
-    const formatList = containerEl.createEl('p');
-    formatList.style.marginTop = '0em'; // Reduce space before list
-    ['{{date}} - Current date (YYYY-MM-DD)',
-      '{{date:YYYY-MM-DD}} - Custom date format',
-      '{{date-1}} - Yesterday\'s date',
-      '{{year}}, {{month}}, {{day}} - Current year (YYYY), month (MM), day (DD)',
-      '{{dddd}}/{{weekday}} - Day of week name (Monday)',
-      '{{mmmm}}/{{monthName}} - Name of month (January)',
-      '{{time}} - Current time (HH:mm)',
-    ].forEach(item => {
-      formatList.createEl('li', { text: item });
-    });
-
   }
 }
 
+// --- Default Settings ---
 const DEFAULT_SETTINGS = {
   commands: [
       {
         "id": "open-home",
         "name": "Open home",
-        "path": normalizePath("00/Home.md"),
-        "type": "open"
+        "path": normalizePath("Home"),
+        "type": "open",
+        "templatePath": "",
+        "snippet": "",
+        "commandIds": ""
       },
       {
         "id": "create-today",
@@ -350,6 +384,14 @@ module.exports = class CustomCommandsPlugin extends Plugin {
                   const resolvedCreatePath = this.resolveDatePlaceholders(command.path);
                   const resolvedTemplatePath = this.resolveDatePlaceholders(command.templatePath);
                   this.createNote(resolvedCreatePath, resolvedTemplatePath);
+                  break;
+                case 'create-with-date':
+                  // Show date picker modal
+                  new DatePickerModal(this.app, (selectedDate) => {
+                    const resolvedCreatePath = this.resolveDatePlaceholders(command.path, selectedDate);
+                    const resolvedTemplatePath = this.resolveDatePlaceholders(command.templatePath, selectedDate);
+                    this.createNote(resolvedCreatePath, resolvedTemplatePath);
+                  }).open();
                   break;
                 case 'insert':
                   const resolvedSnippet = this.resolveDatePlaceholders(command.snippet);
@@ -533,19 +575,19 @@ module.exports = class CustomCommandsPlugin extends Plugin {
   }
 
 
-  // --- Existing Methods (resolveDatePlaceholders, formatDate, etc.) ---
+  // --- Modified resolveDatePlaceholders to accept custom date ---
   // Resolve date placeholders in the path
-  resolveDatePlaceholders(path) {
+  resolveDatePlaceholders(path, customDate = null) {
     if (!path) return path;
 
-    // Get current date
-    const now = new Date();
+    // Use custom date if provided, otherwise use current date
+    const baseDate = customDate || new Date();
 
     // Replace date placeholders
     // Format: {{date}} or {{date:FORMAT}} or {{date+N}} or {{date-N}}
     let resolvedPath = path.replace(/\{\{date(\+|-)?(\d+)?(:([^}]+))?\}\}/g, (match, op, offsetStr, _, format) => {
       // Calculate date with offset if provided
-      let date = new Date(now);
+      let date = new Date(baseDate);
       if (op && offsetStr) {
         const offset = parseInt(offsetStr);
         const days = op === '+' ? offset : -offset;
@@ -560,15 +602,16 @@ module.exports = class CustomCommandsPlugin extends Plugin {
       }
     });
 
-    // Replace other placeholders
+    // Replace other placeholders using the base date
     resolvedPath = resolvedPath
-        .replace(/\{\{year\}\}/g, now.getFullYear().toString())
-        .replace(/\{\{month\}\}/g, String(now.getMonth() + 1).padStart(2, '0'))
-        .replace(/\{\{day\}\}/g, String(now.getDate()).padStart(2, '0'))
-        .replace(/\{\{weekday\}\}/g, this.getWeekdayName(now.getDay()))
-        .replace(/\{\{monthName\}\}/g, this.getMonthName(now.getMonth()));
+        .replace(/\{\{year\}\}/g, baseDate.getFullYear().toString())
+        .replace(/\{\{month\}\}/g, String(baseDate.getMonth() + 1).padStart(2, '0'))
+        .replace(/\{\{day\}\}/g, String(baseDate.getDate()).padStart(2, '0'))
+        .replace(/\{\{weekday\}\}/g, this.getWeekdayName(baseDate.getDay()))
+        .replace(/\{\{monthName\}\}/g, this.getMonthName(baseDate.getMonth()));
 
-    // --- Add Time Placeholders ---
+    // --- Add Time Placeholders (use current time even if custom date) ---
+    const now = new Date(); // For time, we still use current time
     resolvedPath = resolvedPath
         .replace(/\{\{time\}\}/g, this.formatTime(now, "HH:mm")) // Default time format
         .replace(/\{\{time:([^}]+)\}\}/g, (match, format) => this.formatTime(now, format)); // Custom time format
@@ -653,18 +696,6 @@ module.exports = class CustomCommandsPlugin extends Plugin {
     // console.log('Unloading Custom Commands Plugin'); // Renamed
     // Consider cleanup if commands were registered in a way that needs explicit removal
   }
-}
-
-// --- Utility: Generate a unique ID based on name ---
-function generateUniqueId(baseName, commands, skipIndex = -1) {
-  let baseId = baseName.toLowerCase().replace(/\s+/g, '-');
-  let id = baseId;
-  let counter = 2;
-  // Check for duplicates (skipIndex is used to skip the current command when renaming)
-  while (commands.some((cmd, idx) => idx !== skipIndex && cmd.id === id)) {
-    id = `${baseId}-${counter++}`;
-  }
-  return id;
 }
 
 // Helper function for delays
