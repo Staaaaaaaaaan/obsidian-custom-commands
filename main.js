@@ -649,10 +649,6 @@ module.exports = class CustomCommandsPlugin extends Plugin {
     }
   }
 
-
-
-
-
   onunload() {
     // console.log('Unloading Custom Commands Plugin'); // Renamed
     // Consider cleanup if commands were registered in a way that needs explicit removal
