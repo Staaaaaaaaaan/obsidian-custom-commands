@@ -629,15 +629,15 @@ module.exports = class CustomCommandsPlugin extends Plugin {
         new Notice('No note path specified');
         return;
       }
-
-      // Ensure .md extension
-      if (!notePath.endsWith('.md')) {
+      
+      // Only add .md if no extension exists
+      const hasExtension = /\.[^.]+$/.test(notePath);
+      if (!hasExtension) {
         notePath = notePath + '.md';
       }
-
+      
       // Use getFirstLinkpathDest to resolve the path to a file
       let file = this.app.metadataCache.getFirstLinkpathDest(notePath, '');
-
       if (file instanceof TFile) {
         await this.app.workspace.getLeaf(this.settings.leaf).openFile(file);
       } else {
@@ -648,6 +648,10 @@ module.exports = class CustomCommandsPlugin extends Plugin {
       new Notice(`Error opening note: ${error.message}`);
     }
   }
+
+
+
+
 
   onunload() {
     // console.log('Unloading Custom Commands Plugin'); // Renamed
