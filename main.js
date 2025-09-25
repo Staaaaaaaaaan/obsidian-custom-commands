@@ -629,19 +629,34 @@ module.exports = class CustomCommandsPlugin extends Plugin {
         new Notice('No note path specified');
         return;
       }
-      
-      // Only add .md if no extension exists
-      const hasExtension = /\.[^.]+$/.test(notePath);
-      if (!hasExtension) {
-        notePath = notePath + '.md';
-      }
-      
-      // Use getFirstLinkpathDest to resolve the path to a file
+
+      // Normalize path for consistent separators
+      const original = notePath;
+      notePath = normalizePath(notePath);
+
+      // Detect if the last path segment already has an extension
+      // - ensures the dot is in the last segment (no slash after it)
+      const hasExtension = /\.[^.\/\\]+$/.test(notePath);
+
+      // 1) First, let Obsidian resolve the link (handles "Note" -> "Note.md")
       let file = this.app.metadataCache.getFirstLinkpathDest(notePath, '');
+
+      // 2) If not found and the user provided no extension, optionally try .md as a convenience
+      if (!file && !hasExtension) {
+        file = this.app.metadataCache.getFirstLinkpathDest(`${notePath}.md`, '');
+      }
+
+      // 3) Fallback: direct lookup (useful if a non-md file was given with explicit extension)
+      if (!file) {
+        const maybe = this.app.vault.getAbstractFileByPath(notePath);
+        if (maybe instanceof TFile) file = maybe;
+      }
+
       if (file instanceof TFile) {
-        await this.app.workspace.getLeaf(this.settings.leaf).openFile(file);
+        // getLeaf expects a boolean; if you support 'window' elsewhere, handle it before calling getLeaf
+        await this.app.workspace.getLeaf(Boolean(this.settings.leaf)).openFile(file);
       } else {
-        new Notice(`Note "${notePath}" not found.`);
+        new Notice(`Note "${original}" not found.`);
       }
     } catch (error) {
       console.error('Error opening note:', error);
