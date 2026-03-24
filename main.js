@@ -402,6 +402,10 @@ module.exports = class CustomCommandsPlugin extends Plugin {
             notePath += '.md';
         }
 
+        // Sanitize each path segment to replace characters that are invalid in
+        // file/folder names (e.g. ':' produced by the default {{time}} format).
+        notePath = notePath.split('/').map(segment => segment.replace(/[\\:"*?<>|]/g, '-')).join('/');
+
         // Check if file already exists
         const existingFile = this.app.vault.getAbstractFileByPath(notePath);
         if (existingFile instanceof TFile) {
